@@ -19,7 +19,7 @@
 // Hardware-specific support functions that MUST be customized:
 
 static void I2C_delay() {
-	_delay_us(10); // this should give <=50kHz ... or so.
+	_delay_us(3); // this should give <=50kHz ... or so.
 }
 
 static uint8_t read_SCL(void) {
@@ -146,7 +146,9 @@ uint8_t swi2c_write(uint8_t byte) {
   }
   nack = i2c_read_bit();
   EDLY;
-  return i2c_is_error() || nack;
+  uint8_t err = i2c_is_error() || nack;
+  if (err) swi2c_stop();
+  return err;
 }
 
 
@@ -194,7 +196,7 @@ uint8_t swi2c_readNak(void) {
 uint8_t swi2c_read_regs(uint8_t dev, uint8_t reg, uint8_t cnt, uint8_t* buf) {
 	uint8_t x;
 	if ((x = swi2c_start(dev&0xFE))) return x;
-	if (swi2c_write(reg)) goto fail_exit;
+	if (swi2c_write(reg)) return 1;
 	if ((x = swi2c_rep_start(dev|0x01))) return x;
 	uint8_t offset=0;
 	while (cnt>1) {
@@ -204,9 +206,6 @@ uint8_t swi2c_read_regs(uint8_t dev, uint8_t reg, uint8_t cnt, uint8_t* buf) {
 	if (cnt) buf[offset] = swi2c_readNak();
 	swi2c_stop();
 	return i2c_is_error();
-fail_exit:
-	swi2c_stop();
-	return 1;
 }
 
 
@@ -219,7 +218,7 @@ uint8_t swi2c_write_regs(uint8_t dev, uint8_t reg, uint8_t cnt, uint8_t* buf) {
 	if ((x = swi2c_start(dev&0xFE))) return x;
 	if (swi2c_write(reg)) {
 	    sendstr_P(PSTR(" write reg fail "));
-	    goto fail_exit;
+	    return 1;
 	}
 	for (uint8_t i=0;i<cnt;i++) {
 		if (swi2c_write(buf[i])) {
@@ -229,14 +228,11 @@ uint8_t swi2c_write_regs(uint8_t dev, uint8_t reg, uint8_t cnt, uint8_t* buf) {
 		    luint2outdual(buf[i]);
 		    sendstr_P(PSTR(" d[i-1]="));
 		    luint2outdual(buf[i-1]);
-		    goto fail_exit;
+		    return 1;
 		}
 	}
 	swi2c_stop();
 	return i2c_is_error();
-fail_exit:
-	swi2c_stop();
-	return 1;
 }
 
 
@@ -252,14 +248,11 @@ uint8_t swi2c_writem(uint8_t dev, uint8_t cnt, uint8_t* buf) {
 		    luint2outdual(buf[i]);
 		    sendstr_P(PSTR(" d[i-1]="));
 		    luint2outdual(buf[i-1]);
-		    goto fail_exit;
+		    return 1;
 		}
 	}
 	swi2c_stop();
 	return i2c_is_error();
-fail_exit:
-	swi2c_stop();
-	return 1;
 }
 
 

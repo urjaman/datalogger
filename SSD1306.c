@@ -15,7 +15,9 @@ Written by Limor Fried/Ladyada  for Adafruit Industries.
 BSD license, check ssd1306_license.txt for more information
 All text above, and the splash screen below must be included in any redistribution
 *********************************************************************/
-
+/* This has been heavily modified to be C code for bufferless operation 
+ * by Urja Rannikko */
+ 
 #include "main.h"
 #include <avr/pgmspace.h>
 #include <util/delay.h>
@@ -24,9 +26,8 @@ All text above, and the splash screen below must be included in any redistributi
 #include "SSD1306.h"
 #include "i2c.h"
 
-// the memory buffer for the LCD
+// the memory buffer for the LCD - unused.
 #if 0
-/* I cant leave this out because adafruit, but i dont use a memory buffer ... */
 static uint8_t buffer[SSD1306_LCDHEIGHT * SSD1306_LCDWIDTH / 8] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -99,99 +100,7 @@ static uint8_t buffer[SSD1306_LCDHEIGHT * SSD1306_LCDWIDTH / 8] = {
 };
 #endif
 
-static void ssd1306_command(uint8_t c);
-
-
-// the most basic function, set a single pixel
-void drawPixel(int16_t x, int16_t y, uint16_t color) {
-  if ((x < 0) || (x >= SSD1306_LCDWIDTH) || (y < 0) || (y >= SSD1306_LCDHEIGHT))
-    return;
-
-  // x is which column
-    switch (color)
-    {
-      case WHITE:   buffer[x+ (y/8)*SSD1306_LCDWIDTH] |=  (1 << (y&7)); break;
-      case BLACK:   buffer[x+ (y/8)*SSD1306_LCDWIDTH] &= ~(1 << (y&7)); break;
-      case INVERSE: buffer[x+ (y/8)*SSD1306_LCDWIDTH] ^=  (1 << (y&7)); break;
-    }
-
-}
-
-
 static uint8_t i2caddr = SSD1306_I2C_ADDRESS;
-
-void ssd1306_init(void) {
-
-  // Init sequence
-  ssd1306_command(SSD1306_DISPLAYOFF);                    // 0xAE
-  ssd1306_command(SSD1306_SETDISPLAYCLOCKDIV);            // 0xD5
-  ssd1306_command(0x80);                                  // the suggested ratio 0x80
-
-  ssd1306_command(SSD1306_SETMULTIPLEX);                  // 0xA8
-  ssd1306_command(SSD1306_LCDHEIGHT - 1);
-
-  ssd1306_command(SSD1306_SETDISPLAYOFFSET);              // 0xD3
-  ssd1306_command(0x0);                                   // no offset
-  ssd1306_command(SSD1306_SETSTARTLINE | 0x0);            // line #0
-  ssd1306_command(SSD1306_CHARGEPUMP);                    // 0x8D
-//  if (vccstate == SSD1306_EXTERNALVCC)
-//    { ssd1306_command(0x10); }
-//  else
-    { ssd1306_command(0x14); }
-  ssd1306_command(SSD1306_MEMORYMODE);                    // 0x20
-  ssd1306_command(0x00);                                  // 0x0 act like ks0108
-  ssd1306_command(SSD1306_SEGREMAP | 0x1);
-  ssd1306_command(SSD1306_COMSCANDEC);
-
-#if defined SSD1306_128_32
-  ssd1306_command(SSD1306_SETCOMPINS);                    // 0xDA
-  ssd1306_command(0x02);
-  ssd1306_command(SSD1306_SETCONTRAST);                   // 0x81
-  ssd1306_command(0x8F);
-
-#elif defined SSD1306_128_64
-  ssd1306_command(SSD1306_SETCOMPINS);                    // 0xDA
-  ssd1306_command(0x12);
-  ssd1306_command(SSD1306_SETCONTRAST);                   // 0x81
-//  if (vccstate == SSD1306_EXTERNALVCC)
-//    { ssd1306_command(0x9F); }
-//  else
-    { ssd1306_command(0xCF); }
-
-#elif defined SSD1306_96_16
-  ssd1306_command(SSD1306_SETCOMPINS);                    // 0xDA
-  ssd1306_command(0x2);   //ada x12
-  ssd1306_command(SSD1306_SETCONTRAST);                   // 0x81
-//  if (vccstate == SSD1306_EXTERNALVCC)
-//    { ssd1306_command(0x10); }
-//  else
-    { ssd1306_command(0xAF); }
-
-#endif
-
-  ssd1306_command(SSD1306_SETPRECHARGE);                  // 0xd9
-//  if (vccstate == SSD1306_EXTERNALVCC)
-//    { ssd1306_command(0x22); }
-//  else
-    { ssd1306_command(0xF1); }
-  ssd1306_command(SSD1306_SETVCOMDETECT);                 // 0xDB
-  ssd1306_command(0x40);
-  ssd1306_command(SSD1306_DISPLAYALLON_RESUME);           // 0xA4
-  ssd1306_command(SSD1306_NORMALDISPLAY);                 // 0xA6
-
-  ssd1306_command(SSD1306_DEACTIVATE_SCROLL);
-
-  ssd1306_command(SSD1306_DISPLAYON);//--turn on oled panel
-}
-
-
-void invertDisplay(uint8_t i) {
-  if (i) {
-    ssd1306_command(SSD1306_INVERTDISPLAY);
-  } else {
-    ssd1306_command(SSD1306_NORMALDISPLAY);
-  }
-}
 
 static void ssd1306_command(uint8_t c) {
 	uint8_t control = 0x00;   // Co = 0, D/C = 0
@@ -199,121 +108,285 @@ static void ssd1306_command(uint8_t c) {
 	swi2c_writem(i2caddr, 2, buf);
 }
 
-// startscrollright
-// Activate a right handed scroll for rows start through stop
-// Hint, the display is 16 rows tall. To scroll the whole display, run:
-// display.scrollright(0x00, 0x0F)
-void startscrollright(uint8_t start, uint8_t stop){
-  ssd1306_command(SSD1306_RIGHT_HORIZONTAL_SCROLL);
-  ssd1306_command(0X00);
-  ssd1306_command(start);
-  ssd1306_command(0X00);
-  ssd1306_command(stop);
-  ssd1306_command(0X00);
-  ssd1306_command(0XFF);
-  ssd1306_command(SSD1306_ACTIVATE_SCROLL);
+void ssd1306_init(void) {
+	ssd1306_command(SSD1306_DISPLAYOFF);                    // 0xAE
+	ssd1306_command(SSD1306_SETDISPLAYCLOCKDIV);            // 0xD5
+	ssd1306_command(0x80);                                  // the suggested ratio 0x80
+
+	ssd1306_command(SSD1306_SETMULTIPLEX);                  // 0xA8
+	ssd1306_command(SSD1306_LCDHEIGHT - 1);
+
+	ssd1306_command(SSD1306_SETDISPLAYOFFSET);              // 0xD3
+	ssd1306_command(0x0);                                   // no offset
+	ssd1306_command(SSD1306_SETSTARTLINE | 0x0);            // line #0
+	ssd1306_command(SSD1306_CHARGEPUMP);                    // 0x8D
+	//  if (vccstate == SSD1306_EXTERNALVCC)
+	//    { ssd1306_command(0x10); }
+	//  else
+	{ ssd1306_command(0x14); }
+	ssd1306_command(SSD1306_MEMORYMODE);                    // 0x20
+	ssd1306_command(0x00);                                  // 0x0 act like ks0108
+	ssd1306_command(SSD1306_SEGREMAP | 0x1);
+	ssd1306_command(SSD1306_COMSCANDEC);
+
+#if defined SSD1306_128_32
+	ssd1306_command(SSD1306_SETCOMPINS);                    // 0xDA
+	ssd1306_command(0x02);
+	ssd1306_command(SSD1306_SETCONTRAST);                   // 0x81
+	ssd1306_command(0x8F);
+
+#elif defined SSD1306_128_64
+	ssd1306_command(SSD1306_SETCOMPINS);                    // 0xDA
+	ssd1306_command(0x12);
+	ssd1306_command(SSD1306_SETCONTRAST);                   // 0x81
+	//  if (vccstate == SSD1306_EXTERNALVCC)
+	//    { ssd1306_command(0x9F); }
+	//  else
+	{ ssd1306_command(0xCF); }
+
+#elif defined SSD1306_96_16
+	ssd1306_command(SSD1306_SETCOMPINS);                    // 0xDA
+	ssd1306_command(0x2);   //ada x12
+	ssd1306_command(SSD1306_SETCONTRAST);                   // 0x81
+	//  if (vccstate == SSD1306_EXTERNALVCC)
+	//    { ssd1306_command(0x10); }
+	//  else
+	{ ssd1306_command(0xAF); }
+
+#endif
+
+	ssd1306_command(SSD1306_SETPRECHARGE);                  // 0xd9
+	//  if (vccstate == SSD1306_EXTERNALVCC)
+	//    { ssd1306_command(0x22); }
+	//  else
+	{ ssd1306_command(0xF1); }
+	ssd1306_command(SSD1306_SETVCOMDETECT);                 // 0xDB
+	ssd1306_command(0x40);
+	ssd1306_command(SSD1306_DISPLAYALLON_RESUME);           // 0xA4
+	ssd1306_command(SSD1306_NORMALDISPLAY);                 // 0xA6
+
+	ssd1306_command(SSD1306_DEACTIVATE_SCROLL);
+
+	ssd1306_command(SSD1306_DISPLAYON);//--turn on oled panel
 }
 
-// startscrollleft
-// Activate a right handed scroll for rows start through stop
-// Hint, the display is 16 rows tall. To scroll the whole display, run:
-// display.scrollright(0x00, 0x0F)
-void startscrollleft(uint8_t start, uint8_t stop){
-  ssd1306_command(SSD1306_LEFT_HORIZONTAL_SCROLL);
-  ssd1306_command(0X00);
-  ssd1306_command(start);
-  ssd1306_command(0X00);
-  ssd1306_command(stop);
-  ssd1306_command(0X00);
-  ssd1306_command(0XFF);
-  ssd1306_command(SSD1306_ACTIVATE_SCROLL);
+static void ssd1306_setbox(uint8_t x, uint8_t y, uint8_t w, uint8_t h) /* This is the hardware gotoxy */
+{
+	ssd1306_command(SSD1306_COLUMNADDR);
+	ssd1306_command(x);   // Column start address (0 = reset)
+	ssd1306_command((x+w)-1); // Column end address (127 = reset)
+	ssd1306_command(SSD1306_PAGEADDR);
+	ssd1306_command(y); // Page start address (0 = reset)
+	ssd1306_command((y+h)-1); // Page end address
 }
 
-// startscrolldiagright
-// Activate a diagonal scroll for rows start through stop
-// Hint, the display is 16 rows tall. To scroll the whole display, run:
-// display.scrollright(0x00, 0x0F)
-void startscrolldiagright(uint8_t start, uint8_t stop){
-  ssd1306_command(SSD1306_SET_VERTICAL_SCROLL_AREA);
-  ssd1306_command(0X00);
-  ssd1306_command(SSD1306_LCDHEIGHT);
-  ssd1306_command(SSD1306_VERTICAL_AND_RIGHT_HORIZONTAL_SCROLL);
-  ssd1306_command(0X00);
-  ssd1306_command(start);
-  ssd1306_command(0X00);
-  ssd1306_command(stop);
-  ssd1306_command(0X01);
-  ssd1306_command(SSD1306_ACTIVATE_SCROLL);
+#define LCD_CHARW 8
+#define LCDWIDTH SSD1306_LCDWIDTH
+#define LCD
+#define LCD_MAXX (SSD1306_LCDWIDTH/8)
+#define LCD_MAXY (SSD1306_LCDHEIGHT/8)
+
+static uint8_t lcd_char_y, lcd_char_x;
+
+static uint8_t flip_bits(uint8_t bits) {
+	bits = (bits >> 4) | (bits << 4);
+	bits = ((bits >> 2) & 0x33) | ((bits << 2) & 0xCC);
+	bits = ((bits >> 1) & 0x55) | ((bits << 1) & 0xAA);
+	return bits;
 }
 
-// startscrolldiagleft
-// Activate a diagonal scroll for rows start through stop
-// Hint, the display is 16 rows tall. To scroll the whole display, run:
-// display.scrollright(0x00, 0x0F)
-void startscrolldiagleft(uint8_t start, uint8_t stop){
-  ssd1306_command(SSD1306_SET_VERTICAL_SCROLL_AREA);
-  ssd1306_command(0X00);
-  ssd1306_command(SSD1306_LCDHEIGHT);
-  ssd1306_command(SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL);
-  ssd1306_command(0X00);
-  ssd1306_command(start);
-  ssd1306_command(0X00);
-  ssd1306_command(stop);
-  ssd1306_command(0X01);
-  ssd1306_command(SSD1306_ACTIVATE_SCROLL);
+void lcd_write_block_P(const PGM_P buffer, uint8_t w, uint8_t h)
+{
+	uint8_t ye = lcd_char_y+h;
+	uint8_t we = lcd_char_x+w;
+	ssd1306_setbox(lcd_char_x, lcd_char_y, w, h);
+	if (swi2c_start(i2caddr)) return;
+	if (swi2c_write(0x40)) return;
+	for (uint8_t y=lcd_char_y;y<ye;y++) {
+		for (uint8_t x=lcd_char_x;x<we;x++) {
+			uint8_t d = pgm_read_byte(buffer);
+			buffer++;
+			if (swi2c_write(flip_bits(d))) return;
+		}
+	}
+	swi2c_stop();
+	lcd_char_x += w;
+	if (lcd_char_x > (LCD_MAXX*LCD_CHARW)) lcd_char_x = (LCD_MAXX*LCD_CHARW); /* saturate */
+
 }
 
-void stopscroll(void){
-  ssd1306_command(SSD1306_DEACTIVATE_SCROLL);
+void lcd_write_block(const uint8_t *buffer, uint8_t w, uint8_t h)
+{
+	uint8_t ye = lcd_char_y+h;
+	uint8_t we = lcd_char_x+w;
+	ssd1306_setbox(lcd_char_x, lcd_char_y, w, h);
+	if (swi2c_start(i2caddr)) return;
+	if (swi2c_write(0x40)) return;	
+	for (uint8_t y=lcd_char_y;y<ye;y++) {
+		for (uint8_t x=lcd_char_x;x<we;x++) {
+			if (swi2c_write(flip_bits(*buffer++))) return;
+		}
+	}
+	swi2c_stop();
+	lcd_char_x += w;
+
 }
 
-// Dim the display
-// dim = true: display is dimmed
-// dim = false: display is normal
-void dim(boolean dim) {
-  uint8_t contrast;
-
-  if (dim) {
-    contrast = 0; // Dimmed display
-  } else {
-//    if (_vccstate == SSD1306_EXTERNALVCC) {
-//      contrast = 0x9F;
-//    } else {
-      contrast = 0xCF;
-//    }
-  }
-  // the range of contrast to too small to be really useful
-  // it is useful to dim the display
-  ssd1306_command(SSD1306_SETCONTRAST);
-  ssd1306_command(contrast);
+void lcd_clear_block(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+{
+	ssd1306_setbox(x, y, w, h);
+	uint16_t total = (uint16_t)w*(uint16_t)h;
+	if (swi2c_start(i2caddr)) return;
+	if (swi2c_write(0x40)) return;	
+	do {
+		if (swi2c_write(0)) return;
+	} while (--total);
+	swi2c_stop();
 }
 
-void ssd1306_display(void) {
-  ssd1306_command(SSD1306_COLUMNADDR);
-  ssd1306_command(0);   // Column start address (0 = reset)
-  ssd1306_command(SSD1306_LCDWIDTH-1); // Column end address (127 = reset)
 
-  ssd1306_command(SSD1306_PAGEADDR);
-  ssd1306_command(0); // Page start address (0 = reset)
-  #if SSD1306_LCDHEIGHT == 64
-    ssd1306_command(7); // Page end address
-  #endif
-  #if SSD1306_LCDHEIGHT == 32
-    ssd1306_command(3); // Page end address
-  #endif
-  #if SSD1306_LCDHEIGHT == 16
-    ssd1306_command(1); // Page end address
-  #endif
+// mfont8x8.c is generated with https://github.com/urjaman/st7565-fontgen
+#include "mfont8x8.c"
 
-    // I2C
-    for (uint16_t i=0; i<(SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT/8); i += 16) {
-	uint8_t buf[17] = { 0x40 };
-	memcpy(buf+1, buffer+i, 16);
-	swi2c_writem(i2caddr, 17, buf);
-    }
+// Some data for dynamic width mode with this font.
+#include "font-dyn-meta.c"
+
+static void lcd_putchar_(unsigned char c, uint8_t dw)
+{
+
+	PGM_P block;
+	if (c < 0x20) c = 0x20;
+	block = (const char*)&(mfont[c-0x20][0]);
+	uint8_t w = LCD_CHARW;
+	if (dw) {
+		uint8_t font_meta_b = pgm_read_byte(&(font_metadata[c-0x20]));
+		block += XOFF(font_meta_b);
+		w = DW(font_meta_b);
+	}
+	lcd_write_block_P(block,w,1);
 }
 
-// clear everything
-void clearDisplay(void) {
-  memset(buffer, 0, (SSD1306_LCDWIDTH*SSD1306_LCDHEIGHT/8));
+void lcd_putchar(unsigned char c)
+{
+	lcd_putchar_(c,0);
+}
+
+void lcd_putchar_dw(unsigned char c)
+{
+	lcd_putchar_(c,1);
+}
+
+static void lcd_puts_(const unsigned char * str, uint8_t dw)
+{
+start:
+        if (*str) lcd_putchar_(*str,dw);
+        else return;
+        str++;
+        goto start;
+}
+
+static void lcd_puts_P_(PGM_P str,uint8_t dw)
+{
+        unsigned char c;
+start:
+        c = pgm_read_byte(str);
+        if (c) lcd_putchar_(c,dw);
+        else return;
+        str++;
+        goto start;
+}
+
+void lcd_puts(const unsigned char * str)
+{
+	lcd_puts_(str,0);
+}
+
+uint8_t lcd_puts_dw(const unsigned char *str)
+{
+	uint8_t xb = lcd_char_x;
+	lcd_puts_(str,1);
+	return lcd_char_x - xb;
+}
+
+void lcd_puts_P(PGM_P str)
+{
+	lcd_puts_P_(str,0);
+}
+
+uint8_t lcd_puts_dw_P(PGM_P str)
+{
+	uint8_t xb = lcd_char_x;
+	lcd_puts_P_(str,1);
+	return lcd_char_x - xb;
+}
+
+void lcd_clear_dw(uint8_t w) {
+	if ((lcd_char_x+w)>LCDWIDTH) {
+		w = LCDWIDTH - lcd_char_x;
+	}
+	lcd_clear_block(lcd_char_x, lcd_char_y, w, 1);
+	lcd_char_x += w;
+}
+
+void lcd_clear_eol(void) {
+	lcd_clear_dw(LCDWIDTH - lcd_char_x);
+	lcd_char_x = 0;
+	lcd_char_y++;
+}
+
+void lcd_write_dwb(uint8_t *buf, uint8_t w) {
+        lcd_write_block(buf, w, 1);
+}
+
+static uint8_t lcd_dw_charw(uint8_t c)
+{
+	if (c < 0x20) c = 0x20;
+        uint8_t font_meta_b = pgm_read_byte(&(font_metadata[c-0x20]));
+	return DW(font_meta_b);
+}
+
+
+uint8_t lcd_strwidth(const unsigned char * str) {
+	uint8_t w = 0;
+	do {
+		if (*str) w += lcd_dw_charw(*str);
+		else return w;
+		str++;
+	} while(1);
+}
+
+uint8_t lcd_strwidth_P(PGM_P str) {
+	uint8_t w = 0;
+	do {
+		uint8_t c = pgm_read_byte(str);
+		if (c) w += lcd_dw_charw(c);
+		else return w;
+		str++;
+	} while(1);
+}
+
+void lcd_gotoxy_dw(uint8_t x, uint8_t y)
+{
+	if (x >= LCDWIDTH) x=LCDWIDTH-1;
+	if (y >= LCD_MAXY) y=LCD_MAXY-1;
+	lcd_char_x = x;
+	lcd_char_y = y;
+}
+
+void lcd_gotoxy(uint8_t x, uint8_t y)
+{
+	lcd_gotoxy_dw(LCD_CHARW*x,y);
+}
+
+
+void lcd_clear(void)
+{
+	lcd_clear_block(0,0, LCDWIDTH, LCD_MAXY);
+	lcd_char_x = 0;
+	lcd_char_y = 0;
+}
+
+void lcd_init(void)
+{
+	ssd1306_init();
 }

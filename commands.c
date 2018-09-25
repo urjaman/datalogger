@@ -5,13 +5,14 @@
 #include "lib.h"
 #include "ciface.h"
 #include "appdb.h"
-#include "SSD1306.h"
+#include "lcd.h"
 
-CIFACE_APP(ssd1306_cmd, "SSD1306")
+CIFACE_APP(ssd1306_cmd, "LCDINIT")
 {
 	swi2c_init();
-	ssd1306_init();
-	ssd1306_display();
+	lcd_init();
+	lcd_clear();
+	lcd_puts_dw_P(PSTR("Hello World!"));
 }
 
 

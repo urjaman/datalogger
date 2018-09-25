@@ -17,10 +17,6 @@ All text above, and the splash screen must be included in any redistribution
 *********************************************************************/
 #pragma once
 
-#define BLACK 0
-#define WHITE 1
-#define INVERSE 2
-
 #define SSD1306_I2C_ADDRESS   (0x3C<<1)  // 011110+SA0+RW - 0x3C or 0x3D
 // Address for 128x32 is 0x3C
 // Address for 128x64 is 0x3D (default) or 0x3C (if SA0 is grounded)
@@ -110,22 +106,31 @@ All text above, and the splash screen must be included in any redistribution
 #define SSD1306_VERTICAL_AND_RIGHT_HORIZONTAL_SCROLL 0x29
 #define SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL 0x2A
 
-typedef uint8_t boolean;
-
 void ssd1306_init(void);
 
-void clearDisplay(void);
-void invertDisplay(uint8_t i);
-void ssd1306_display(void);
+void lcd_init(void);
+void lcd_putchar(unsigned char c);
+void lcd_puts(const unsigned char* str);
+void lcd_puts_P(PGM_P str);
+void lcd_clear(void);
+// This is compatibility, in char blocks
+void lcd_gotoxy(uint8_t x, uint8_t y);
 
-void startscrollright(uint8_t start, uint8_t stop);
-void startscrollleft(uint8_t start, uint8_t stop);
+// This is in the native format, x= pixels, y=blocks
+void lcd_gotoxy_dw(uint8_t x, uint8_t y);
 
-void startscrolldiagright(uint8_t start, uint8_t stop);
-void startscrolldiagleft(uint8_t start, uint8_t stop);
-void stopscroll(void);
+uint8_t lcd_puts_dw(const unsigned char *str);
+uint8_t lcd_puts_dw_P(PGM_P str);
 
-void dim(boolean dim);
+// These are for the dynamic extension of the font, obviously
+uint8_t lcd_strwidth(const unsigned char *str);
+uint8_t lcd_strwidth_P(PGM_P str);
 
-void drawPixel(int16_t x, int16_t y, uint16_t color);
+/* Buffer should be w*h bytes big. */
+void lcd_write_block_P(const PGM_P buffer, uint8_t w, uint8_t h);
+void lcd_write_block(const uint8_t* buffer, uint8_t w, uint8_t h);
 
+/* Dynwidth "gfx" functions. */
+void lcd_clear_dw(uint8_t w);
+void lcd_write_dwb(uint8_t *buf, uint8_t w);
+void lcd_clear_eol(void);
