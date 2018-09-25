@@ -1,0 +1,3 @@
+[submodule "ciface"]
+	path = ciface
+	url = https://github.com/urjaman/ciface.git
