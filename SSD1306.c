@@ -24,7 +24,7 @@ All text above, and the splash screen below must be included in any redistributi
 #include <stdlib.h>
 
 #include "SSD1306.h"
-#include "i2c.h"
+#include "swi2c.h"
 
 // the memory buffer for the LCD - unused.
 #if 0
@@ -108,7 +108,7 @@ static void ssd1306_command(uint8_t c) {
 	swi2c_writem(i2caddr, 2, buf);
 }
 
-void ssd1306_init(void) {
+static void ssd1306_init(void) {
 	ssd1306_command(SSD1306_DISPLAYOFF);                    // 0xAE
 	ssd1306_command(SSD1306_SETDISPLAYCLOCKDIV);            // 0xD5
 	ssd1306_command(0x80);                                  // the suggested ratio 0x80
@@ -180,13 +180,18 @@ static void ssd1306_setbox(uint8_t x, uint8_t y, uint8_t w, uint8_t h) /* This i
 	ssd1306_command((y+h)-1); // Page end address
 }
 
-#define LCD_CHARW 8
-#define LCDWIDTH SSD1306_LCDWIDTH
-#define LCD
-#define LCD_MAXX (SSD1306_LCDWIDTH/8)
-#define LCD_MAXY (SSD1306_LCDHEIGHT/8)
-
 static uint8_t lcd_char_y, lcd_char_x;
+static uint8_t disp_on;
+
+void lcd_idle(uint8_t idle) {
+	if (disp_on == !idle) return;
+	if (idle) {
+		ssd1306_command(SSD1306_DISPLAYOFF);
+	} else {
+		ssd1306_command(SSD1306_DISPLAYON);
+	}
+	disp_on = !idle;
+}
 
 static uint8_t flip_bits(uint8_t bits) {
 	bits = (bits >> 4) | (bits << 4);
@@ -389,4 +394,5 @@ void lcd_clear(void)
 void lcd_init(void)
 {
 	ssd1306_init();
+	disp_on = 1;
 }

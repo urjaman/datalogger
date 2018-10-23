@@ -106,7 +106,10 @@ All text above, and the splash screen must be included in any redistribution
 #define SSD1306_VERTICAL_AND_RIGHT_HORIZONTAL_SCROLL 0x29
 #define SSD1306_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL 0x2A
 
-void ssd1306_init(void);
+#define LCD_CHARW 8
+#define LCDWIDTH SSD1306_LCDWIDTH
+#define LCD_MAXX (SSD1306_LCDWIDTH/8)
+#define LCD_MAXY (SSD1306_LCDHEIGHT/8)
 
 void lcd_init(void);
 void lcd_putchar(unsigned char c);
@@ -134,3 +137,6 @@ void lcd_write_block(const uint8_t* buffer, uint8_t w, uint8_t h);
 void lcd_clear_dw(uint8_t w);
 void lcd_write_dwb(uint8_t *buf, uint8_t w);
 void lcd_clear_eol(void);
+
+/* Crude on/off control to preserve OLED life ... */
+void lcd_idle(uint8_t idle);

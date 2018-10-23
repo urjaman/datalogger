@@ -48,11 +48,14 @@ utxbufoff_t volatile uart_sndrptr;
 #define TX_ISR USART0_UDRE_vect
 #endif
 
+extern uint8_t timer_waiting;
+
 ISR(RX_ISR) {
 	urxbufoff_t reg = uart_rcvwptr;
 	uart_rcvbuf[reg++] = UDR0;
 	RLIM_RL(reg);
 	uart_rcvwptr = reg;
+	timer_waiting = 1;
 }
 
 

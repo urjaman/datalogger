@@ -1,0 +1,6 @@
+SDPATH := sd
+CFLAGS += -I$(SDPATH)
+SOURCES += $(wildcard $(SDPATH)/*.c)
+DEPS += $(wildcard $(SDPATH)/*.h)
+
+

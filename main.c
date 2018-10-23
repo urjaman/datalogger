@@ -14,16 +14,42 @@
  */
 
 #include "main.h"
+#include "swi2c.h"
 #include "i2c.h"
 #include "uart.h"
 #include "ciface.h"
-#include "SSD1306.h"
+#include "lcd.h"
+#include "buttons.h"
+#include "timer.h"
+#include "tui.h"
+#include "console.h"
+#include "powermgmt.h"
+#include "logger.h"
 
-int main(void) {
+void mini_mainloop(void) {
+	timer_run();
+	if ((uart_isdata()) ||(getline_i) ) timer_activity();
+	ciface_run();
+	logger_run();
+}
+
+void main (void) __attribute__ ((noreturn));
+
+
+void main(void) {
 	uart_init();
 	ciface_init();
+	pm_init();
+	timer_init();
+	buttons_init();
+	swi2c_init();
+	lcd_init();
+	i2c_init();
+	logger_init();
+	tui_init();
 	for(;;) {
-		ciface_run();
+		mini_mainloop();
+		tui_run();
 	}
 }
 

@@ -13,8 +13,8 @@
 ##
 
 PROJECT=logadatter
-DEPS=uart.h main.h i2c.h SSD1306.h Makefile
-SOURCES=main.c uart.c i2c.c SSD1306.c commands.c
+DEPS=uart.h main.h swi2c.h i2c.h rtc.h buttons.h SSD1306.h tui.h tui-lib.h time.h timer.h logger.h Makefile
+SOURCES=main.c uart.c swi2c.c i2c.c rtc.c buttons.c powermgmt.c timer.c time.c tui.c tui-lib.c logger.c SSD1306.c commands.c
 CC=avr-gcc
 LD=avr-ld
 OBJCOPY=avr-objcopy
@@ -22,13 +22,14 @@ MMCU=atmega328p
 #AVRBINDIR=~/avr-tools/bin/
 SERIAL_DEV ?= /dev/ttyUSB0
 AVRDUDECMD=avrdude -p m328p -c arduino -P $(SERIAL_DEV) -b 115200
-CFLAGS=-mmcu=$(MMCU) -Os -fno-inline-small-functions -g -Wall -W -pipe -flto -flto-partition=none -fwhole-program
+CFLAGS=-mmcu=$(MMCU) -Os -fno-inline-small-functions -g -Wno-main -Wall -W -pipe -flto -flto-partition=none -fwhole-program
 CMD_SOURCES=commands.c
 
 all: $(PROJECT).out
 	$(AVRBINDIR)avr-size $(PROJECT).out
 
 include ciface/Makefile.ciface
+include sd/Makefile.include
 
 $(PROJECT).hex: $(PROJECT).out
 	$(AVRBINDIR)$(OBJCOPY) -j .text -j .data -O ihex $(PROJECT).out $(PROJECT).hex
@@ -36,8 +37,13 @@ $(PROJECT).hex: $(PROJECT).out
 $(PROJECT).bin: $(PROJECT).out
 	$(AVRBINDIR)$(OBJCOPY) -j .text -j .data -O binary $(PROJECT).out $(PROJECT).bin
 
-$(PROJECT).out: $(SOURCES) $(DEPS)
-	$(AVRBINDIR)$(CC) $(CFLAGS) -I./ -o $(PROJECT).out $(SOURCES)
+$(PROJECT).out: $(SOURCES) $(DEPS) timer-ll.o
+	$(AVRBINDIR)$(CC) $(CFLAGS) -I./ -o $(PROJECT).out $(SOURCES) timer-ll.o
+
+
+timer-ll.o: timer-ll.c timer.c main.h
+	$(AVRBINDIR)$(CC) $(CFLAGS) -I./ -c -o timer-ll.o timer-ll.c
+
 
 program: $(PROJECT).hex
 	$(AVRBINDIR)$(AVRDUDECMD) -U flash:w:$(PROJECT).hex
