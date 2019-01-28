@@ -12,6 +12,7 @@
 #define FAT_H
 
 #include <stdint.h>
+#include <avr/pgmspace.h>
 #include "fat_config.h"
 
 #ifdef __cplusplus
@@ -164,6 +165,8 @@ uint8_t fat_get_dir_entry_of_path(struct fat_fs_struct* fs, const char* path, st
 
 offset_t fat_get_fs_size(const struct fat_fs_struct* fs);
 offset_t fat_get_fs_free(const struct fat_fs_struct* fs);
+
+PGM_P fat_get_last_error(void);
 
 /**
  * @}

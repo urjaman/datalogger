@@ -6,7 +6,7 @@
 #include "lcd.h"
 #include "fat_config.h"
 
-#define IDLE_TIMEOUT 60
+#define IDLE_TIMEOUT 600
 
 /* This part is the non-calendar/date/time-related part. Just uptimer, etc. */
 uint8_t timer_waiting=0;

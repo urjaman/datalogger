@@ -15,7 +15,7 @@
 #include "sd-reader_config.h"
 
 #include <string.h>
-
+#include <avr/pgmspace.h>
 
 /**
  * \addtogroup fat FAT support
@@ -130,6 +130,12 @@
  * For the n'th lfn entry the ordinal field is or'ed with 0x40.
  * For deleted lfn entries, the ordinal field is set to 0xe5.
  */
+
+static PGM_P last_err;
+
+PGM_P fat_get_last_error(void) {
+	return last_err;
+}
 
 struct fat_read_dir_callback_arg
 {
@@ -1178,6 +1184,7 @@ uint8_t fat_seek_file(struct fat_file_struct* fd, int32_t* offset, uint8_t whenc
             new_pos = fd->dir_entry.file_size + *offset;
             break;
         default:
+	    last_err = PSTR("bad whence");
             return 0;
     }
 
@@ -1676,7 +1683,7 @@ offset_t fat_find_offset_for_dir_entry(struct fat_fs_struct* fs, const struct fa
     {
         if(offset == offset_to)
         {
-            if(cluster_num == 0)
+            if(cluster_num == 0) 
                 /* We iterated through the whole root directory and
                  * could not find enough space for the directory entry.
                  */
@@ -1805,12 +1812,14 @@ uint8_t fat_write_dir_entry(const struct fat_fs_struct* fs, struct fat_dir_entry
         uint8_t name_ext_len = strlen(name_ext);
         name_len -= name_ext_len + 1;
 
-        if(name_ext_len > 3)
+        if(name_ext_len > 3) {
 #if FAT_LFN_SUPPORT
             name_ext_len = 3;
 #else
+	    last_err = PSTR("Long ext");
             return 0;
 #endif
+	}
         
         memcpy(&buffer[8], name_ext, name_ext_len);
     }
@@ -1850,6 +1859,7 @@ uint8_t fat_write_dir_entry(const struct fat_fs_struct* fs, struct fat_dir_entry
         num &= 0x0f;
         buffer[7] = (num < 0x0a) ? ('0' + num) : ('a' + num);
 #else
+	last_err = PSTR("Long name");
         return 0;
 #endif
     }
@@ -1875,7 +1885,10 @@ uint8_t fat_write_dir_entry(const struct fat_fs_struct* fs, struct fat_dir_entry
 #else
     if(!device_write(offset, buffer, sizeof(buffer)))
 #endif
+	{
+	last_err = PSTR("Write error");
         return 0;
+	}
     
 #if FAT_LFN_SUPPORT
     /* calculate checksum of 8.3 name */
@@ -1964,9 +1977,10 @@ uint8_t fat_write_dir_entry(const struct fat_fs_struct* fs, struct fat_dir_entry
  */
 uint8_t fat_create_file(struct fat_dir_struct* parent, const char* file, struct fat_dir_entry_struct* dir_entry)
 {
-    if(!parent || !file || !file[0] || !dir_entry)
+    if(!parent || !file || !file[0] || !dir_entry) {
+	last_err = PSTR("Invalid params");
         return 0;
-
+    }
     /* check if the file already exists */
     while(1)
     {
@@ -1976,6 +1990,7 @@ uint8_t fat_create_file(struct fat_dir_struct* parent, const char* file, struct 
         if(strcmp(file, dir_entry->long_name) == 0)
         {
             fat_reset_dir(parent);
+	    last_err = PSTR("File exists");
             return 2;
         }
     }
@@ -1987,7 +2002,7 @@ uint8_t fat_create_file(struct fat_dir_struct* parent, const char* file, struct 
     strncpy(dir_entry->long_name, file, sizeof(dir_entry->long_name) - 1);
 
     /* find place where to store directory entry */
-    if(!(dir_entry->entry_offset = fat_find_offset_for_dir_entry(fs, parent, dir_entry)))
+    if(!(dir_entry->entry_offset = fat_find_offset_for_dir_entry(fs, parent, dir_entry))) 
         return 0;
     
     /* write directory entry to disk */

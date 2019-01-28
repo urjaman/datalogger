@@ -27,6 +27,7 @@
 #include <stdlib.h>
 
 void mini_mainloop(void);
+void cli_bgloop(void);
 
 /* Enable 24-bit types as an optimization for gcc 4.7+ */
 #if (((__GNUC__ == 4)&&(__GNUC_MINOR__ >= 7)) || (__GNUC__ > 4))

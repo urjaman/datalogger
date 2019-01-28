@@ -63,8 +63,9 @@ static void Wait_SCL1(uint8_t id) {
 		_delay_us(1);
 	} while (++i);
 	status |= TIMEOUT;
-	sendstr_P(PSTR(" SCL_TO "));
-	luint2outdual(id);
+	(void)id;
+//	sendstr_P(PSTR(" SCL_TO "));
+//	luint2outdual(id);
 }
 
 static void i2c_start_cond(void) {

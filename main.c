@@ -25,12 +25,19 @@
 #include "console.h"
 #include "powermgmt.h"
 #include "logger.h"
+#include "rcminitx.h"
+#include "ams2302.h"
 
-void mini_mainloop(void) {
+void cli_bgloop(void) {
 	timer_run();
 	if ((uart_isdata()) ||(getline_i) ) timer_activity();
-	ciface_run();
+	ams_run();
 	logger_run();
+}
+
+void mini_mainloop(void) {
+	cli_bgloop();
+	ciface_run();
 }
 
 void main (void) __attribute__ ((noreturn));
@@ -45,6 +52,7 @@ void main(void) {
 	swi2c_init();
 	lcd_init();
 	i2c_init();
+	ams_init();
 	logger_init();
 	tui_init();
 	for(;;) {

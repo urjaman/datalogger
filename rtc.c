@@ -20,8 +20,8 @@ static uint8_t rtc_is_ok=0;
 
 // 0 = OK, nonzero = not ok
 uint8_t rtc_read(struct mtm* tm) {
-	uint8_t buf[9];
-	if (i2c_read_regs(RTC_I2C_ADDR,0,7,buf)) {
+	uint8_t buf[10];
+	if (i2c_read_regs(RTC_I2C_ADDR,0,10,buf)) {
 		rtc_is_ok=0;
 		return 1; // Not OK
 	}
@@ -35,7 +35,8 @@ uint8_t rtc_read(struct mtm* tm) {
 	tm->year = readbcd(buf[6]);
 	tm->month = readbcd(buf[5]&0x1F);
 	tm->day = readbcd(buf[4]&0x3F);
-	if ((buf[8]) && (buf[8] <= 2)) {
+	uint8_t chkcentury = buf[9] ^ 0xFF;
+	if ((buf[8]) && (buf[8] <= 2) && (buf[8] == chkcentury)) {
 		/* Use first byte of SRAM for century -
 		 * it will not work automatically, but atleast
 		 * we should remember it correctly if set. */
@@ -47,7 +48,7 @@ uint8_t rtc_read(struct mtm* tm) {
 
 
 void rtc_write(struct mtm* tm) {
-	uint8_t buf[9];
+	uint8_t buf[10];
 	buf[0] = writebcd(tm->sec);
 	buf[1] = writebcd(tm->min);
 	buf[2] = writebcd(tm->hour);
@@ -57,7 +58,8 @@ void rtc_write(struct mtm* tm) {
 	buf[6] = writebcd(tm->year % 100);
 	buf[7] = 0; /* Controls, dont use SQWO or OUT */
 	buf[8] = tm->year/100;
-	if (i2c_write_regs(RTC_I2C_ADDR,0,9,buf)) {
+	buf[9] = (tm->year/100) ^ 0xFF; // a bit of a checksum so the century doesnt get used accidentally
+	if (i2c_write_regs(RTC_I2C_ADDR,0,10,buf)) {
 		rtc_is_ok = 0;
 		return; // Not OK
 	}

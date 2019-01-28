@@ -53,6 +53,7 @@ int32_t tui_gen_menupart(printval_func_t *printer, int32_t min, int32_t max, int
 	uint8_t idw = lcd_strwidth_P(idstr);
 	const uint32_t entries = ((max-min)+1)/step;
 	const uint8_t brackl = entries < (LCD_MAXY-1) ? entries : LCD_MAXY - 1;
+	uint8_t dl = 125; /* entry delay */
 	if (listmenu) {
 		/* Enable a list-like menu */
 		if (LCD_MAXY>2) {
@@ -110,7 +111,8 @@ int32_t tui_gen_menupart(printval_func_t *printer, int32_t min, int32_t max, int
 			timer_delay_ms(180);
 			timer_delay_ms(100);
 		}
-		if (delay) timer_delay_ms(delay);
+		if (dl) timer_delay_ms(dl);
+		dl = delay; /* Delay once the pre-set entry delay, and after that the given delay. */
 		uint8_t key = tui_waitforkey();
 		if ((lbm==1)&&(key&BUTTON_NEXT)) key = BUTTON_PREV;
 		switch (key) {
@@ -204,7 +206,7 @@ static void tui_gen_message_start(PGM_P l1) {
 }
 
 static void tui_gen_message_end(void) {
-	timer_delay_ms(100);
+	timer_delay_ms(125);
 	tui_waitforkey();
 }
 

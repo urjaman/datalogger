@@ -13,8 +13,8 @@
 ##
 
 PROJECT=logadatter
-DEPS=uart.h main.h swi2c.h i2c.h rtc.h buttons.h SSD1306.h tui.h tui-lib.h time.h timer.h logger.h Makefile
-SOURCES=main.c uart.c swi2c.c i2c.c rtc.c buttons.c powermgmt.c timer.c time.c tui.c tui-lib.c logger.c SSD1306.c commands.c
+DEPS=uart.h main.h swi2c.h i2c.h rtc.h buttons.h SSD1306.h tui.h tui-lib.h time.h timer.h logger.h rcminitx.h ams2302.h Makefile
+SOURCES=main.c uart.c swi2c.c i2c.c rtc.c buttons.c powermgmt.c timer.c time.c tui.c tui-lib.c logger.c SSD1306.c rcminitx.c ams2302.c commands.c
 CC=avr-gcc
 LD=avr-ld
 OBJCOPY=avr-objcopy
@@ -55,3 +55,7 @@ clean:
 	rm -f $(PROJECT).out
 	rm -f $(PROJECT).hex
 	rm -f $(PROJECT).s
+
+astyle:
+	astyle -A8 -t8 -xC110 -z2 -o -O $(SOURCES) $(HEADERS)
+

@@ -6,6 +6,9 @@
 #include "tui.h"
 #include "tui-lib.h"
 #include "rtc.h"
+#include "ams2302.h"
+#include "logger.h"
+#include "fat.h"
 
 #define TUI_DEFAULT_REFRESH_INTERVAL 5
 
@@ -21,7 +24,7 @@ void tui_num_helper(unsigned char* buf, uint8_t n) {
 
 static void tui_datetime(struct mtm* tm, uint8_t* lb) {
 	uint16_t fyear = tm->year + TIME_EPOCH_YEAR;
-	tui_num_helper(lb, fyear / 100;
+	tui_num_helper(lb, fyear / 100);
 	tui_num_helper(lb+2, fyear % 100);
 	lb[4] = '-';
 	tui_num_helper(lb+5,tm->month);
@@ -36,6 +39,9 @@ static void tui_datetime(struct mtm* tm, uint8_t* lb) {
 
 
 static void tui_draw_mainpage(uint8_t forced) {
+	int16_t temp10;
+	uint16_t rh10;
+
 	uint8_t timetxt[18];
 	tui_force_draw = 0;
 	if (!forced) {
@@ -48,7 +54,54 @@ static void tui_draw_mainpage(uint8_t forced) {
 	lcd_puts(timetxt);
 
 	lcd_gotoxy(0, 1);
-	
+	PGM_P r = ams_get(&temp10, &rh10, 5);
+	if (r) {
+		lcd_puts_dw_P(r);
+	} else {
+		unsigned char v10s[8];
+		lcd_puts_dw_P(PSTR("T: "));
+		make_v10_str(v10s, temp10);
+		lcd_puts_dw(v10s);
+		lcd_puts_dw_P(PSTR("\xB0" "C RH:"));
+		make_v10_str(v10s, rh10);
+		lcd_puts_dw(v10s);
+		lcd_puts_dw_P(PSTR("%"));
+	}
+	lcd_clear_eol();
+
+	lcd_gotoxy(0, 2);
+	lcd_puts_dw_P(PSTR("SD: "));
+	timetxt[0] = 0x30 | logger_sd_status();
+	timetxt[1] = ' ';
+	timetxt[2] = 0;
+	lcd_puts_dw(timetxt);
+	PGM_P e = logger_sd_err();
+	if (e) {
+		lcd_puts_dw_P(PSTR("E:"));
+		lcd_puts_dw_P(e);
+		lcd_clear_eol();
+
+		e = fat_get_last_error();
+		lcd_gotoxy(0, 3);
+		if (e) {
+			lcd_puts_dw_P(PSTR("F:"));
+			lcd_puts_dw_P(e);
+		}
+	} else {
+		uint8_t *wp = timetxt;
+		lcd_puts_dw_P(PSTR("LB:"));
+		wp += uint2str(wp, logger_buf_stat());
+		*wp++ = '/';
+		uint2str(wp, LOGBUF_SZ);
+		lcd_puts_dw(timetxt);
+		lcd_clear_eol();
+
+		lcd_gotoxy(0, 3);
+		luint2str(timetxt, logger_log_size());
+		lcd_puts_dw_P(PSTR("LS:"));
+		lcd_puts_dw(timetxt);
+	}
+	lcd_clear_eol();
 }
 
 void tui_init(void) {
@@ -111,11 +164,19 @@ void tui_set_clock(void) {
 	timer_set_time(&tm);
 }
 
+const unsigned char tui_sdeject_name[] PROGMEM = "Eject SD";
+void tui_eject_sd(void) {
+	if (!tui_are_you_sure()) return;
+	logger_sd_eject(1);
+	tui_gen_message(PSTR("Swap SD Card"), PSTR("Now"));
+	logger_sd_eject(0);
+}
 
 
 const unsigned char tui_mm_s2[] PROGMEM = "RTC Status";
 
 PGM_P const tui_mm_table[] PROGMEM = {
+    (PGM_P)tui_sdeject_name,
     (PGM_P)tui_setclock_name,
     (PGM_P)tui_mm_s2,
     (PGM_P)tui_exit_menu
@@ -124,12 +185,15 @@ PGM_P const tui_mm_table[] PROGMEM = {
 void tui_mainmenu(void) {
 	uint8_t sel=0;
 	for (;;) {
-		sel = tui_gen_listmenu(PSTR("MAIN MENU"), tui_mm_table, 3, sel);
+		sel = tui_gen_listmenu(PSTR("MAIN MENU"), tui_mm_table, 4, sel);
 		switch (sel) {
 			case 0:
-				tui_set_clock();
+				tui_eject_sd();
 				return;
 			case 1:
+				tui_set_clock();
+				return;
+			case 2:
 				{
 					PGM_P l1 = PSTR("RTC IS");
 					if (rtc_valid()) {

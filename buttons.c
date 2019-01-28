@@ -4,7 +4,8 @@
 #include "uart.h"
 
 void buttons_init(void) {
-	PORTD |= _BV(2) | _BV(3); // enable pull-ups
+	PORTD |= _BV(2);
+	PORTD |= _BV(3); // enable pull-ups
 }
 
 uint8_t buttons_get_v(void) {
@@ -18,7 +19,6 @@ uint8_t buttons_get(void) {
 	uint8_t v = buttons_get_v();
 	if (!v) return 0;
 	timer_activity();
-	timer_delay_ms(125);
 	timer_delay_ms(125);
 	for(;;) {
 		uint8_t sv;
