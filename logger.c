@@ -148,7 +148,7 @@ void logger_run(void) {
 			logger_line();
 			if (!sd_stat) {
 				logger_sd_init();
-			} else {
+			} else if (sd_stat == 1) {
 				/* "poll" the card */
 				struct sd_raw_info dummy;
 				if (!sd_raw_get_info(&dummy)) {
