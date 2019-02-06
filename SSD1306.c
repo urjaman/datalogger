@@ -15,9 +15,9 @@ Written by Limor Fried/Ladyada  for Adafruit Industries.
 BSD license, check ssd1306_license.txt for more information
 All text above, and the splash screen below must be included in any redistribution
 *********************************************************************/
-/* This has been heavily modified to be C code for bufferless operation 
+/* This has been heavily modified to be C code for bufferless operation
  * by Urja Rannikko */
- 
+
 #include "main.h"
 #include <avr/pgmspace.h>
 #include <util/delay.h>
@@ -26,8 +26,10 @@ All text above, and the splash screen below must be included in any redistributi
 #include "SSD1306.h"
 #include "swi2c.h"
 
-// the memory buffer for the LCD - unused.
-#if 0
+/* This unused blob of splash screen apparently has to remain here, because
+ * this code was forked before it was moved into a splash.h header in the
+ * main library. */
+/*
 static uint8_t buffer[SSD1306_LCDHEIGHT * SSD1306_LCDWIDTH / 8] = {
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -98,17 +100,17 @@ static uint8_t buffer[SSD1306_LCDHEIGHT * SSD1306_LCDWIDTH / 8] = {
 #endif
 #endif
 };
-#endif
+*/
 
 static uint8_t i2caddr = SSD1306_I2C_ADDRESS;
 
-static void ssd1306_command(uint8_t c) {
+void ssd1306_command(uint8_t c) {
 	uint8_t control = 0x00;   // Co = 0, D/C = 0
 	uint8_t buf[2] = { control, c };
 	swi2c_writem(i2caddr, 2, buf);
 }
 
-static void ssd1306_init(void) {
+void ssd1306_init(void) {
 	ssd1306_command(SSD1306_DISPLAYOFF);                    // 0xAE
 	ssd1306_command(SSD1306_SETDISPLAYCLOCKDIV);            // 0xD5
 	ssd1306_command(0x80);                                  // the suggested ratio 0x80
@@ -166,11 +168,12 @@ static void ssd1306_init(void) {
 	ssd1306_command(SSD1306_NORMALDISPLAY);                 // 0xA6
 
 	ssd1306_command(SSD1306_DEACTIVATE_SCROLL);
-
 	ssd1306_command(SSD1306_DISPLAYON);//--turn on oled panel
 }
 
-static void ssd1306_setbox(uint8_t x, uint8_t y, uint8_t w, uint8_t h) /* This is the hardware gotoxy */
+
+
+void ssd1306_setbox(uint8_t x, uint8_t y, uint8_t w, uint8_t h) /* This is the hardware gotoxy */
 {
 	ssd1306_command(SSD1306_COLUMNADDR);
 	ssd1306_command(x);   // Column start address (0 = reset)
@@ -180,219 +183,16 @@ static void ssd1306_setbox(uint8_t x, uint8_t y, uint8_t w, uint8_t h) /* This i
 	ssd1306_command((y+h)-1); // Page end address
 }
 
-static uint8_t lcd_char_y, lcd_char_x;
-static uint8_t disp_on;
-
-void lcd_idle(uint8_t idle) {
-	if (disp_on == !idle) return;
-	if (idle) {
-		ssd1306_command(SSD1306_DISPLAYOFF);
-	} else {
-		ssd1306_command(SSD1306_DISPLAYON);
-	}
-	disp_on = !idle;
+uint8_t ssd1306_start(void) {
+	if (swi2c_start(i2caddr)) return 1;
+	if (swi2c_write(0x40)) return 1;
+	return 0;
 }
 
-static uint8_t flip_bits(uint8_t bits) {
-	bits = (bits >> 4) | (bits << 4);
-	bits = ((bits >> 2) & 0x33) | ((bits << 2) & 0xCC);
-	bits = ((bits >> 1) & 0x55) | ((bits << 1) & 0xAA);
-	return bits;
+uint8_t ssd1306_data(uint8_t d) {
+	return swi2c_write(d);
 }
 
-void lcd_write_block_P(const PGM_P buffer, uint8_t w, uint8_t h)
-{
-	uint8_t ye = lcd_char_y+h;
-	uint8_t we = lcd_char_x+w;
-	ssd1306_setbox(lcd_char_x, lcd_char_y, w, h);
-	if (swi2c_start(i2caddr)) return;
-	if (swi2c_write(0x40)) return;
-	for (uint8_t y=lcd_char_y;y<ye;y++) {
-		for (uint8_t x=lcd_char_x;x<we;x++) {
-			uint8_t d = pgm_read_byte(buffer);
-			buffer++;
-			if (swi2c_write(flip_bits(d))) return;
-		}
-	}
+void ssd1306_end(void) {
 	swi2c_stop();
-	lcd_char_x += w;
-	if (lcd_char_x > (LCD_MAXX*LCD_CHARW)) lcd_char_x = (LCD_MAXX*LCD_CHARW); /* saturate */
-
-}
-
-void lcd_write_block(const uint8_t *buffer, uint8_t w, uint8_t h)
-{
-	uint8_t ye = lcd_char_y+h;
-	uint8_t we = lcd_char_x+w;
-	ssd1306_setbox(lcd_char_x, lcd_char_y, w, h);
-	if (swi2c_start(i2caddr)) return;
-	if (swi2c_write(0x40)) return;	
-	for (uint8_t y=lcd_char_y;y<ye;y++) {
-		for (uint8_t x=lcd_char_x;x<we;x++) {
-			if (swi2c_write(flip_bits(*buffer++))) return;
-		}
-	}
-	swi2c_stop();
-	lcd_char_x += w;
-
-}
-
-void lcd_clear_block(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
-{
-	ssd1306_setbox(x, y, w, h);
-	uint16_t total = (uint16_t)w*(uint16_t)h;
-	if (swi2c_start(i2caddr)) return;
-	if (swi2c_write(0x40)) return;	
-	do {
-		if (swi2c_write(0)) return;
-	} while (--total);
-	swi2c_stop();
-}
-
-
-// mfont8x8.c is generated with https://github.com/urjaman/st7565-fontgen
-#include "mfont8x8.c"
-
-// Some data for dynamic width mode with this font.
-#include "font-dyn-meta.c"
-
-static void lcd_putchar_(unsigned char c, uint8_t dw)
-{
-
-	PGM_P block;
-	if (c < 0x20) c = 0x20;
-	block = (const char*)&(mfont[c-0x20][0]);
-	uint8_t w = LCD_CHARW;
-	if (dw) {
-		uint8_t font_meta_b = pgm_read_byte(&(font_metadata[c-0x20]));
-		block += XOFF(font_meta_b);
-		w = DW(font_meta_b);
-	}
-	lcd_write_block_P(block,w,1);
-}
-
-void lcd_putchar(unsigned char c)
-{
-	lcd_putchar_(c,0);
-}
-
-void lcd_putchar_dw(unsigned char c)
-{
-	lcd_putchar_(c,1);
-}
-
-static void lcd_puts_(const unsigned char * str, uint8_t dw)
-{
-start:
-        if (*str) lcd_putchar_(*str,dw);
-        else return;
-        str++;
-        goto start;
-}
-
-static void lcd_puts_P_(PGM_P str,uint8_t dw)
-{
-        unsigned char c;
-start:
-        c = pgm_read_byte(str);
-        if (c) lcd_putchar_(c,dw);
-        else return;
-        str++;
-        goto start;
-}
-
-void lcd_puts(const unsigned char * str)
-{
-	lcd_puts_(str,0);
-}
-
-uint8_t lcd_puts_dw(const unsigned char *str)
-{
-	uint8_t xb = lcd_char_x;
-	lcd_puts_(str,1);
-	return lcd_char_x - xb;
-}
-
-void lcd_puts_P(PGM_P str)
-{
-	lcd_puts_P_(str,0);
-}
-
-uint8_t lcd_puts_dw_P(PGM_P str)
-{
-	uint8_t xb = lcd_char_x;
-	lcd_puts_P_(str,1);
-	return lcd_char_x - xb;
-}
-
-void lcd_clear_dw(uint8_t w) {
-	if ((lcd_char_x+w)>LCDWIDTH) {
-		w = LCDWIDTH - lcd_char_x;
-	}
-	lcd_clear_block(lcd_char_x, lcd_char_y, w, 1);
-	lcd_char_x += w;
-}
-
-void lcd_clear_eol(void) {
-	lcd_clear_dw(LCDWIDTH - lcd_char_x);
-	lcd_char_x = 0;
-	lcd_char_y++;
-}
-
-void lcd_write_dwb(uint8_t *buf, uint8_t w) {
-        lcd_write_block(buf, w, 1);
-}
-
-static uint8_t lcd_dw_charw(uint8_t c)
-{
-	if (c < 0x20) c = 0x20;
-        uint8_t font_meta_b = pgm_read_byte(&(font_metadata[c-0x20]));
-	return DW(font_meta_b);
-}
-
-
-uint8_t lcd_strwidth(const unsigned char * str) {
-	uint8_t w = 0;
-	do {
-		if (*str) w += lcd_dw_charw(*str);
-		else return w;
-		str++;
-	} while(1);
-}
-
-uint8_t lcd_strwidth_P(PGM_P str) {
-	uint8_t w = 0;
-	do {
-		uint8_t c = pgm_read_byte(str);
-		if (c) w += lcd_dw_charw(c);
-		else return w;
-		str++;
-	} while(1);
-}
-
-void lcd_gotoxy_dw(uint8_t x, uint8_t y)
-{
-	if (x >= LCDWIDTH) x=LCDWIDTH-1;
-	if (y >= LCD_MAXY) y=LCD_MAXY-1;
-	lcd_char_x = x;
-	lcd_char_y = y;
-}
-
-void lcd_gotoxy(uint8_t x, uint8_t y)
-{
-	lcd_gotoxy_dw(LCD_CHARW*x,y);
-}
-
-
-void lcd_clear(void)
-{
-	lcd_clear_block(0,0, LCDWIDTH, LCD_MAXY);
-	lcd_char_x = 0;
-	lcd_char_y = 0;
-}
-
-void lcd_init(void)
-{
-	ssd1306_init();
-	disp_on = 1;
 }

@@ -23,7 +23,7 @@ SERIAL_DEV ?= /dev/ttyUSB0
 AVRDUDECMD=avrdude -p m328p -c arduino -P $(SERIAL_DEV) -b 115200
 CFLAGS=-mmcu=$(MMCU) -Os -fno-inline-small-functions -g -Wno-main -Wall -W -pipe -flto -flto-partition=none -fwhole-program
 CMD_SOURCES=commands.c ciface/command_echo.c
-SOURCES=main.c uart.c swi2c.c i2c.c rtc.c buttons.c powermgmt.c timer.c time.c tui.c tui-lib.c logger.c SSD1306.c rcminitx.c ams2302.c $(CMD_SOURCES)
+SOURCES=main.c uart.c swi2c.c i2c.c rtc.c buttons.c powermgmt.c timer.c time.c tui.c tui-lib.c logger.c SSD1306.c rcminitx.c lcd.c ams2302.c $(CMD_SOURCES)
 
 all: $(PROJECT).out
 	$(AVRBINDIR)avr-size $(PROJECT).out
