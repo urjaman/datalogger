@@ -20,6 +20,10 @@
 #include "main.h"
 #include "lcd.h"
 
+
+#define lf_height 2
+#define lf_width 1
+
 static uint8_t lcd_char_y, lcd_char_x;
 static uint8_t disp_on;
 
@@ -39,6 +43,37 @@ static uint8_t flip_bits(uint8_t bits) {
 	bits = ((bits >> 1) & 0x55) | ((bits << 1) & 0xAA);
 	return bits;
 }
+
+static void lcd_font2x(const uint8_t *ib, uint8_t w)
+{
+	uint8_t ob[LCDWIDTH*2]; /* 2 lines */
+	uint8_t ws = w * lf_width;
+
+	if (ws >= LCDWIDTH) {
+		w = LCDWIDTH / lf_width;
+		ws = w * lf_width;
+	}
+
+	for (uint8_t i=0; i<w; i++) {
+		uint8_t is = i * lf_width;
+		uint8_t d = ib[i];
+		uint8_t hi = 0;
+		uint8_t lo = 0;
+		for (int b=0; b<4; b++) {
+			hi = hi >> 2;
+			lo = lo >> 2;
+			if (d & _BV(4+b)) hi |= 0xC0;
+			if (d & _BV(b)) lo |= 0xC0;
+		}
+		for (uint8_t wi = 0; wi < lf_width; wi++) {
+			ob[is+wi] = hi;
+			ob[ws+is+wi] = lo;
+		}
+
+	}
+	lcd_write_block(ob, ws, 2);
+}
+
 
 void lcd_write_block_P(const PGM_P buffer, uint8_t w, uint8_t h)
 {
@@ -93,9 +128,9 @@ void lcd_clear_block(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 // Some data for dynamic width mode with this font.
 #include "font-dyn-meta.c"
 
-static void lcd_putchar_(unsigned char c, uint8_t dw)
-{
 
+uint8_t lcd_fontdata(uint8_t *buf, unsigned char c, uint8_t dw)
+{
 	PGM_P block;
 	if (c < 0x20) c = 0x20;
 	block = (const char*)&(mfont[c-0x20][0]);
@@ -105,7 +140,15 @@ static void lcd_putchar_(unsigned char c, uint8_t dw)
 		block += XOFF(font_meta_b);
 		w = DW(font_meta_b);
 	}
-	lcd_write_block_P(block,w,1);
+	memcpy_P(buf, block, w);
+	return w;
+}
+
+static void lcd_putchar_(unsigned char c, uint8_t dw)
+{
+	uint8_t buf[LCD_CHARW];
+	uint8_t w = lcd_fontdata(buf, c, dw);
+	lcd_font2x(buf, w);
 }
 
 void lcd_putchar(unsigned char c)
@@ -163,21 +206,31 @@ uint8_t lcd_puts_dw_P(PGM_P str)
 }
 
 void lcd_clear_dw(uint8_t w) {
+	int8_t h = lf_height;
+	if (!w) return;
 	if ((lcd_char_x+w)>LCDWIDTH) {
 		w = LCDWIDTH - lcd_char_x;
+		if (!w) return;
 	}
-	lcd_clear_block(lcd_char_x, lcd_char_y, w, 1);
+
+	if ((lcd_char_y+h)>LCD_MAXY) {
+		h = LCD_MAXY - lcd_char_y;
+		if (h <= 0) return;
+	}
+	lcd_clear_block(lcd_char_x, lcd_char_y, w, h);
 	lcd_char_x += w;
 }
 
 void lcd_clear_eol(void) {
 	lcd_clear_dw(LCDWIDTH - lcd_char_x);
 	lcd_char_x = 0;
-	lcd_char_y++;
+	lcd_char_y += lf_height;
+	if (lcd_char_y > LCD_MAXY) lcd_char_y = LCD_MAXY;
 }
 
+
 void lcd_write_dwb(uint8_t *buf, uint8_t w) {
-        lcd_write_block(buf, w, 1);
+        lcd_font2x(buf, w);
 }
 
 static uint8_t lcd_dw_charw(uint8_t c)
@@ -231,5 +284,7 @@ void lcd_clear(void)
 void lcd_init(void)
 {
 	ssd1306_init();
+	lcd_clear();
+	ssd1306_command(SSD1306_DISPLAYON);
 	disp_on = 1;
 }

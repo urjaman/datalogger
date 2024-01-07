@@ -113,6 +113,8 @@ void ssd1306_setbox(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
 uint8_t ssd1306_start(void);
 uint8_t ssd1306_data(uint8_t d);
 void ssd1306_end(void);
+void ssd1306_flip(uint8_t com, uint8_t seg);
 
+void ssd1306_run(void);
 
 

@@ -19,7 +19,7 @@
 // Hardware-specific support functions that MUST be customized:
 
 static void I2C_delay() {
-	_delay_us(3); // this should give <=50kHz ... or so.
+	_delay_us(2); // this should give <=50kHz ... or so.
 }
 
 static uint8_t read_SCL(void) {

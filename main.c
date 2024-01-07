@@ -18,6 +18,7 @@
 #include "i2c.h"
 #include "uart.h"
 #include "ciface.h"
+#include "SSD1306.h"
 #include "lcd.h"
 #include "buttons.h"
 #include "timer.h"
@@ -31,6 +32,7 @@
 void cli_bgloop(void) {
 	timer_run();
 	if ((uart_isdata()) ||(getline_i) ) timer_activity();
+	ssd1306_run();
 	ams_run();
 	logger_run();
 }

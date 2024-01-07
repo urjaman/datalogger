@@ -53,7 +53,7 @@ static void tui_draw_mainpage(uint8_t forced) {
 	tui_datetime(&tm, timetxt);
 	lcd_puts(timetxt);
 
-	lcd_gotoxy(0, 1);
+	lcd_gotoxy(0, 2);
 	PGM_P r = ams_get(&temp10, &rh10, 5);
 	if (r) {
 		lcd_puts_dw_P(r);
@@ -69,7 +69,7 @@ static void tui_draw_mainpage(uint8_t forced) {
 	}
 	lcd_clear_eol();
 
-	lcd_gotoxy(0, 2);
+	lcd_gotoxy(0, 4);
 	lcd_puts_dw_P(PSTR("SD: "));
 	timetxt[0] = 0x30 | logger_sd_status();
 	timetxt[1] = ' ';
@@ -82,7 +82,7 @@ static void tui_draw_mainpage(uint8_t forced) {
 		lcd_clear_eol();
 
 		e = fat_get_last_error();
-		lcd_gotoxy(0, 3);
+		lcd_gotoxy(0, 6);
 		if (e) {
 			lcd_puts_dw_P(PSTR("F:"));
 			lcd_puts_dw_P(e);
@@ -96,7 +96,7 @@ static void tui_draw_mainpage(uint8_t forced) {
 		lcd_puts_dw(timetxt);
 		lcd_clear_eol();
 
-		lcd_gotoxy(0, 3);
+		lcd_gotoxy(0, 6);
 		luint2str(timetxt, logger_log_size());
 		lcd_puts_dw_P(PSTR("LS:"));
 		lcd_puts_dw(timetxt);

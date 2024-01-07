@@ -45,6 +45,9 @@ void tui_gen_menuheader(PGM_P header) {
 }
 
 int32_t tui_gen_menupart(printval_func_t *printer, int32_t min, int32_t max, int32_t start, int32_t step, uint8_t delay, uint8_t listmenu) {
+	const uint8_t yfact = 2;
+	const uint8_t ylines = LCD_MAXY / yfact;
+
 	unsigned char buf[LCDWIDTH];
 	uint8_t lbm = buttons_hw_count()==1?2:0;
 	int32_t idx=start;
@@ -52,11 +55,12 @@ int32_t tui_gen_menupart(printval_func_t *printer, int32_t min, int32_t max, int
 	PGM_P idstr = PSTR("> ");
 	uint8_t idw = lcd_strwidth_P(idstr);
 	const uint32_t entries = ((max-min)+1)/step;
-	const uint8_t brackl = entries < (LCD_MAXY-1) ? entries : LCD_MAXY - 1;
+	const uint8_t brackl = entries < (ylines-1) ? entries : ylines - 1;
+
 	uint8_t dl = 125; /* entry delay */
 	if (listmenu) {
 		/* Enable a list-like menu */
-		if (LCD_MAXY>2) {
+		if (ylines>2) {
 			if (start==min) brackpos = 0;
 			else if (start==max) brackpos = brackl-1;
 			else brackpos = 1;
@@ -65,14 +69,14 @@ int32_t tui_gen_menupart(printval_func_t *printer, int32_t min, int32_t max, int
 		lbm = 0;
 	}
 	/* No LBM for 16x2s... if i end up using them. */
-	if (LCD_MAXY<=2) lbm = 0;
+	if (ylines<=2) lbm = 0;
 	for (;;) {
 		if (brackpos >= 0) {
 			int32_t vidx = idx;
 			int8_t bp;
 			for (bp=brackpos;bp<brackl;bp++) {
 				uint8_t sl = printer(buf,vidx);
-				lcd_gotoxy_dw(0, bp+1);
+				lcd_gotoxy_dw(0, (bp+1)*yfact);
 				if (bp==brackpos) lcd_puts_dw_P(idstr);
 				else lcd_clear_dw(idw);
 				buf[sl] = 0;
@@ -84,7 +88,7 @@ int32_t tui_gen_menupart(printval_func_t *printer, int32_t min, int32_t max, int
 				vidx = idx - step;
 				for (bp=brackpos-1;bp>=0;bp--) {
 					uint8_t sl = printer(buf, vidx);
-					lcd_gotoxy_dw(0, bp+1);
+					lcd_gotoxy_dw(0, (bp+1)*yfact);
 					lcd_clear_dw(idw);
 					buf[sl] = 0;
 					lcd_puts_dw(buf);
@@ -93,16 +97,17 @@ int32_t tui_gen_menupart(printval_func_t *printer, int32_t min, int32_t max, int
 					else vidx -= step;
 				}
 			}
+			lcd_gotoxy_dw(LCDWIDTH,brackl*yfact);
 		} else {
 			uint8_t sl = printer(buf, idx);
 			buf[sl] = 0;
 			sl = lcd_strwidth(buf);
-			lcd_gotoxy_dw(0,1);
+			lcd_gotoxy_dw(0,yfact);
 			lcd_clear_dw((LCDWIDTH - sl)/2);
 			lcd_puts_dw(buf);
 			lcd_clear_eol();
 			if (lbm) {
-				lcd_gotoxy_dw(0,2);
+				lcd_gotoxy_dw(0,yfact*2);
 				lcd_puts_dw_P(lbm==2?PSTR("DIR: NEXT"):PSTR("DIR: PREV"));
 				lcd_clear_eol();
 			}
@@ -212,14 +217,14 @@ static void tui_gen_message_end(void) {
 
 void tui_gen_message(PGM_P l1, PGM_P l2) {
 	tui_gen_message_start(l1);
-	lcd_gotoxy_dw((LCDWIDTH - lcd_strwidth_P(l2))/2,1);
+	lcd_gotoxy_dw((LCDWIDTH - lcd_strwidth_P(l2))/2,2);
 	lcd_puts_dw_P(l2);
 	tui_gen_message_end();
 }
 
 void tui_gen_message_m(PGM_P l1, const unsigned char* l2m) {
 	tui_gen_message_start(l1);
-	lcd_gotoxy_dw((LCDWIDTH - lcd_strwidth(l2m))/2,1);
+	lcd_gotoxy_dw((LCDWIDTH - lcd_strwidth(l2m))/2,2);
 	lcd_puts_dw(l2m);
 	tui_gen_message_end();
 }
